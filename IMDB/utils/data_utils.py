@@ -32,3 +32,13 @@ def load_data(filepath):
     # print(labels.shape)
 
     return features, adj, node_types, labels, train_val_test_idx
+
+def load_metapaths(filepath):
+
+    metapaths = []
+    with open(filepath, 'r') as f:
+        for line in f:
+            line = line.strip().split(',')
+            metapaths.append(np.array(line, dtype=int))
+
+    return np.array(metapaths)
