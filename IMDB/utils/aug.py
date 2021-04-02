@@ -5,8 +5,43 @@ import pdb
 import scipy.sparse as sp
 import numpy as np
 
-def main():
-    pass
+class Augmentor():
+    def __init__(self, aug_ratio=0.2, metapath=None):
+        self.aug_ratio = aug_ratio
+        self.metapath = metapath
+
+    def apply_aug(x, adj, node_types=None, edge_types=None, return_keep=False):
+
+        if self.aug_type == None:
+            aug_x, aug_adj = x, adj
+        elif self.aug_type == 'dropN':
+            aug_x, aug_adj = drop_nodes(x, adj, self.aug_ratio)
+        elif self.aug_type == 'dropE':
+            aug_x, aug_adj = drop_edges(x, adj, self.aug_ratio)
+        elif self.aug_type == 'maskN':
+            aug_x, aug_adj = mask_nodes(x, adj, self.aug_ratio)
+        elif self.aug_type == 'subgraph':
+            aug_x, aug_adj = subgraph(x, adj, self.aug_ratio)
+        elif self.aug_type == 'dropN_metapath':
+            aug_x, aug_adj = drop_node_types(x, adj, node_types, self.metapath, self.aug_ratio)
+        elif self.aug_type == 'dropE_metapath':
+            aug_x, aug_adj = drop_edge_types(x, adj, node_types, self.metapath, self.aug_ratio)
+        elif self.aug_type == 'subgraph_metapath':
+            aug_x, aug_adj = subgraph_metapath(x, adj, node_types, self.metapath, self.aug_ratio)
+        elif self.aug_type == 'subgraph_metapath_list':
+            aug_x, aug_adj = subgraph_metapath_list(x, adj, node_types, self.metapath, self.aug_ratio)
+        elif self.aug_type == 'dropN_not_on_metapath':
+            aug_x, aug_adj = drop_node_types(x, adj, node_types, self.metapath, self.aug_ratio, inverse=True)
+        elif self.aug_type == 'dropE_not_on_metapath':
+            aug_x, aug_adj = drop_edge_types(x, adj, node_types, self.metapath, self.aug_ratio, inverse=True)
+        elif self.aug_type == 'subgraph_not_on_metapath':
+            aug_x, aug_adj = subgraph_metapath(x, adj, node_types, self.metapath, self.aug_ratio, inverse=True)
+        elif self.aug_type == 'subgraph_not_on_metapath_list':
+            aug_x, aug_adj = subgraph_metapath_list(x, adj, node_types, self.metapath, self.aug_ratio, inverse=True)
+
+
+
+
 
 def mask_nodes(x, adj, aug_ratio=0.2):
 

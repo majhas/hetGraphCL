@@ -145,7 +145,6 @@ def main(args):
         dataloader2 = DataLoader(dataset2, batch_size=args.batch_size)
 
         loss = model.train_step(dataloader1, dataloader2, opt)
-        return
         # epoch_loss = torch.mean(torch.tensor(losses))
         # scheduler.step(loss)
         print(f'Epoch: {epoch+1}\tLoss: {loss}')

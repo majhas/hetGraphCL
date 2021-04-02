@@ -106,7 +106,7 @@ def main(args):
     macro_f1s = []
 
     tot = 0
-    iters = 20
+    iters = 10
 
     for i in range(iters):
         best = 1e9

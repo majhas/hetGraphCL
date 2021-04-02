@@ -26,8 +26,8 @@ from sklearn.svm import LinearSVC
 from plotly.figure_factory import create_table
 
 aug_choices = [None, 'dropN', 'dropE', 'maskN',
-                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list',
-                'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
+                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list']
+                # ,'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -229,8 +229,8 @@ def main(args):
     table = create_table(results_table, index=True)
     table.update_layout(
         autosize=False,
-        width=2800,
-        height=1000
+        width=1400,
+        height=500
     )
     table.write_image(os.path.join(args.load, f'{args.model_name}_semisup_results_table.png'))
 

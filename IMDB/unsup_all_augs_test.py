@@ -7,22 +7,28 @@ import scipy.sparse as sp
 import random
 import torch
 import torch.nn as nn
+import torch.nn.functional as F
 
+from torch.utils.data import DataLoader
+from utils.dataset import HetGraphDataset
 from utils.aug import *
 from utils.data_utils import *
 from utils import process
-from models.graph_cl import GraphCL
+from models.graph_cl import GraphCL, HetGraphCL
 from models.gcn import GCN
+from models.hgt import HGT
 from models.logreg import LogReg
+from models.model_finetune import ModelFinetune, HetModelFinetune
 from sklearn.metrics import f1_score
 from sklearn.linear_model import LogisticRegression
 from sklearn.svm import LinearSVC
 
+
 from plotly.figure_factory import create_table
 
 aug_choices = [None, 'dropN', 'dropE', 'maskN',
-                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list',
-                'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
+                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list']
+                # ,'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
 
 def parse_args():
     parser = argparse.ArgumentParser()
@@ -56,6 +62,15 @@ def main(args):
     x, adj, node_types, labels, train_val_test_idx = load_data(args.filepath)
     n_classes = len(np.unique(labels))
 
+    edge_types = {
+        (0, 0): 0,
+        (1, 1): 0,
+        (2, 2): 0,
+        (0, 1): 1,
+        (1, 0): 1,
+        (0, 2): 2,
+        (2, 0): 2
+    }
 
 
     train_idx = train_val_test_idx['train_idx']
@@ -110,7 +125,7 @@ def main(args):
             elif args.model == 'hgt':
                 num_node_types = len(np.unique(node_types))
                 num_edge_types = len(np.unique(edge_types.values))
-                model = HGT(in_dim=n_fts, hid_dim=saved_dict['hid_dim'], out_dim=saved_dict['out_dim'], n_layers=saved_dict['n_layers'],
+                model = HGT(in_dim=x.shape[-1], hid_dim=saved_dict['hid_dim'], out_dim=saved_dict['out_dim'], n_layers=saved_dict['n_layers'],
                             num_node_types=num_node_types, num_edge_types=num_edge_types, n_heads=8, dropout=saved_dict['dropout'])
 
                 model.load_state_dict(saved_dict['state_dict'])
@@ -210,8 +225,8 @@ def main(args):
     table = create_table(results_table, index=True)
     table.update_layout(
         autosize=False,
-        width=2800,
-        height=1000
+        width=1400,
+        height=500
     )
     table.write_image(os.path.join(args.load, f'{args.model_name}_unsup_results_table.png'))
 

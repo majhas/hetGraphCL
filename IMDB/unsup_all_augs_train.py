@@ -20,8 +20,8 @@ from sklearn.metrics import f1_score
 
 
 aug_choices = [None, 'dropN', 'dropE', 'maskN',
-                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list',
-                'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
+                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list']
+                # ,'dropN_not_on_metapath', 'dropE_not_on_metapath', 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
 
 def parse_args():
 
