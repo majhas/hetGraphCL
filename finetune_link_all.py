@@ -2,7 +2,6 @@ import os
 import csv
 import argparse
 import numpy as np
-import pandas as pd
 import scipy.sparse as sp
 import random
 
@@ -12,15 +11,15 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from utils.data_utils import load_data, load_metapaths
+from utils.data_utils import load_data, load_IMDB_link, load_metapaths
 from utils.dataset import GraphDataset
 from utils.process import preprocess_adj
 
-from models.model_finetune import ModelFinetune
+from models.model_finetune import LinkFinetune
 from models.gcn import GCN
 from models.hgt import HGT
 
-from training.train import train_finetune, evaluate
+from training.train import train_finetune_link, evaluate_link
 
 from plotly.figure_factory import create_table
 
@@ -61,10 +60,9 @@ def main(args):
     if 'cuda' in args.device:
         device = torch.device(args.device)
 
-    node_features, adj, node_types, node_map, labels, train_val_test_idx = load_data(args.filepath)
+    node_features, adj, node_types, node_map, train_val_test_edges = load_IMDB_link(args.filepath)
     # n_fts = [feat.shape[-1] for feat in node_features]
     n_fts = node_features.shape[-1]
-    n_classes = len(np.unique(labels))
 
     adj = preprocess_adj(adj)
     edge_idx = (adj.row, adj.col)
@@ -74,13 +72,6 @@ def main(args):
     # node_features = [torch.tensor(feat, dtype=torch.float32) for feat in node_features]
     node_features = torch.as_tensor(node_features, dtype=torch.float32)
     adj = torch.sparse_coo_tensor(edge_idx, values, shape, dtype=torch.float32).to_dense()
-    labels = torch.LongTensor(labels)
-    masks = [torch.LongTensor(train_val_test_idx[split]) for split in train_val_test_idx]
-    dataset = GraphDataset(
-                node_features=node_features,
-                adj=adj,
-                labels=labels)
-
 
     results_table = []
 
@@ -138,7 +129,7 @@ def main(args):
                     if state_dict is not None:
                         gnn.load_state_dict(state_dict)
 
-                    model = ModelFinetune(gnn=gnn, n_classes=n_classes)
+                    model = LinkFinetune(gnn=gnn)
 
                 # elif args.model == 'hgt':
                 #     num_node_types = len(np.unique(node_types))
@@ -156,10 +147,10 @@ def main(args):
                 #     model = HetGraphCL(gnn=gnn, head_dim=args.head_dim)
 
                 opt = torch.optim.Adam(model.parameters(), lr=lr, weight_decay=5e-4)
-                criterion = nn.NLLLoss()
+                criterion = nn.BCEWithLogitsLoss()
 
-                train_finetune(model, dataset, criterion, opt, masks, args.epochs, device=device)
-                loss, acc = evaluate(model, dataset, criterion, masks, device=device)
+                train_finetune_link(model, [node_features, adj], criterion, opt, train_val_test_edges, args.epochs, device=device)
+                loss, acc = evaluate_link(model, [node_features, adj], criterion, train_val_test_edges, device=device)
 
                 print(f'Iter: {iter}\tAcc: {acc}')
                 accs.append(acc * 100)

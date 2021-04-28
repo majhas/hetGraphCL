@@ -41,23 +41,9 @@ class Augmentor():
         elif aug_type == 'subgraph_not_on_metapath_list':
             aug_x, aug_adj = subgraph_metapath_list(x, adj, self.node_types, self.metapath_list, self.aug_ratio, inverse=True)
 
-
         return aug_x, aug_adj
 
 
-def remove_nodes(x, dropped):
-
-    aug_x = []
-    start = 0
-    for node_feats in x:
-        end = len(node_feats) + start
-        drop_partition = np.array([node for node in dropped if node > start if node < end])
-        drop_partition -= start
-        node_feats[drop_partition] = 0
-        aug_x.append(node_feats)
-        start = end
-
-    return aug_x
 
 def mask_nodes(x, adj, aug_ratio=0.2):
 
@@ -70,14 +56,16 @@ def mask_nodes(x, adj, aug_ratio=0.2):
     nodes = nodes[idx_perm]
     nodes_dropped = nodes[:drop_num]
     nodes = nodes[drop_num:]
-    aug_x = remove_nodes(x, nodes_dropped)
+
+    aug_x = torch.clone(x)
+    aug_x[nodes_dropped] = 0
 
     return aug_x, adj
 
 
 def drop_edges(x, adj, aug_ratio=0.2):
 
-    edge_idx = torch.nonzero(torch.triu(adj))
+    edge_idx = torch.nonzero(adj)
 
     num_edges = len(edge_idx[0])
     drop_num = int(num_edges  * aug_ratio)
@@ -95,7 +83,7 @@ def drop_edges(x, adj, aug_ratio=0.2):
 
     aug_adj = torch.clone(adj)
     aug_adj[edges_dropped1, edges_dropped2] = 0
-    aug_adj[edges_dropped2, edges_dropped1] = 0
+    # aug_adj[edges_dropped2, edges_dropped1] = 0
 
     return x, aug_adj
 
@@ -104,7 +92,7 @@ def drop_edge_types(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False):
     ''' TODO '''
 
     _, adj_meta = subgraph_metapath(x, adj, node_types, metapath, inverse=inverse, drop=False)
-    edge_idx = torch.nonzero(torch.triu(adj_meta))
+    edge_idx = torch.nonzero(adj_meta)
 
     num_edges = len(edge_idx[0])
     drop_num = int(num_edges  * aug_ratio)
@@ -122,14 +110,14 @@ def drop_edge_types(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False):
 
     aug_adj = torch.clone(adj)
     aug_adj[edges_dropped1, edges_dropped2] = 0
-    aug_adj[edges_dropped2, edges_dropped1] = 0
+    # aug_adj[edges_dropped2, edges_dropped1] = 0
     return x, aug_adj
 
 def drop_nodes(x, adj, aug_ratio=0.2):
 
     num_nodes = adj.shape[0]
-    # print(num_nodes)
     drop_num = int(num_nodes  * aug_ratio)
+
     nodes = np.arange(num_nodes)
     idx_perm = np.random.permutation(num_nodes)
 
@@ -137,17 +125,16 @@ def drop_nodes(x, adj, aug_ratio=0.2):
     nodes_dropped = nodes[:drop_num]
     nodes = nodes[drop_num:]
 
-    aug_x = remove_nodes(x, nodes_dropped)
-    # print([feat.shape for feat in aug_x])
+    aug_x = torch.clone(x)
+    aug_x[nodes_dropped] = 0
+
     aug_adj = torch.clone(adj)
     aug_adj[nodes_dropped, :] = 0
     aug_adj[:, nodes_dropped] = 0
 
     return aug_x, aug_adj
 
-
 def drop_node_types(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False):
-
 
     if inverse:
         targeted_nodes = np.array([idx for idx, node_type in enumerate(node_types) if node_type not in metapath])
@@ -163,7 +150,8 @@ def drop_node_types(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False):
     nodes_dropped = targeted_nodes[:drop_num]
     targeted_nodes = targeted_nodes[drop_num:]
 
-    aug_x = remove_nodes(x, nodes_dropped)
+    aug_x = torch.clone(x)
+    aug_x[nodes_dropped] = 0
 
     aug_adj = torch.clone(adj)
     aug_adj[nodes_dropped, :] = 0
@@ -259,6 +247,7 @@ def subgraph_metapath(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False
 
             neighbors = torch.nonzero(adj[t], as_tuple=False).squeeze(1).tolist()
             neighbors = list(set(neighbors))
+
             if inverse:
                 neighbors = np.array([n for n in neighbors if node_types[n] != source_type])
             else:
@@ -268,9 +257,15 @@ def subgraph_metapath(x, adj, node_types, metapath, aug_ratio=0.2, inverse=False
                 aug_adj[t, neighbors] = 1
 
     seen = set(torch.flatten(torch.nonzero(aug_adj, as_tuple=False)).tolist())
-    drop_node_list = [idx for idx in range(len(adj)) if idx in seen]
+    if inverse:
+        drop_node_list = [idx for idx in range(len(adj)) if idx in seen]
+    else:
+        # drop_node_list = [idx for idx, node_type in enumerate(node_types) if node_type not in metapath]
+        # print(len(drop_node_list))
+        drop_node_list = [idx for idx in range(len(adj)) if idx in seen]
 
-    aug_x = remove_nodes(x, drop_node_list)
+    aug_x = torch.clone(x)
+    aug_x[drop_node_list] = 0
 
     if drop:
         aug_x, aug_adj = drop_nodes(aug_x, aug_adj, aug_ratio)

@@ -1,3 +1,4 @@
+import numpy as np
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -25,6 +26,7 @@ def NTXent_loss(z1, z2, temp=0.1):
 
     return loss
 
+
 def train_cl(model, dataloader, criterion, opt, epochs, augs, node_types=None,
                 metapath=None, metapath_list=None, aug_ratio=0.2, patience=10, device='cpu'):
 
@@ -42,10 +44,10 @@ def train_cl(model, dataloader, criterion, opt, epochs, augs, node_types=None,
         aug_x1, aug_adj1 = augmentor.apply_aug(node_features, adj, augs[0])
         aug_x2, aug_adj2 = augmentor.apply_aug(node_features, adj, augs[1])
 
-        aug_x1 = [feat.to(device) for feat in aug_x1]
+        aug_x1 = aug_x1.to(device)
         aug_adj1 = aug_adj1.to(device)
 
-        aug_x2 = [feat.to(device) for feat in aug_x2]
+        aug_x2 = aug_x2.to(device)
         aug_adj2 = aug_adj2.to(device)
 
         out1 = model(aug_x1, aug_adj1)
@@ -85,7 +87,7 @@ def train_finetune(model, dataloader, criterion, opt,
 
         x, adj, labels = dataloader[0]
 
-        x = [feat.to(device) for feat in x]
+        x = x.to(device)
         adj = adj.to(device)
         labels = labels.to(device)
         train_mask = masks[0]
@@ -116,6 +118,76 @@ def train_finetune(model, dataloader, criterion, opt,
             print('Early stopping!')
             break
 
+def train_finetune_link(model, dataloader, criterion, opt,
+                    edges, epochs, patience=10, device='cpu'):
+
+    best = 1e9
+    best_t = 0
+    counter = 0
+
+    model.to(device)
+    model.train()
+    for epoch in range(epochs):
+
+        opt.zero_grad()
+
+        x, adj = dataloader
+
+        x = x.to(device)
+        adj = adj.to(device)
+        train_edges = torch.as_tensor(edges['train'])
+        neg_samples = torch.as_tensor(edges['neg_train'])
+
+        ones = torch.ones((train_edges.shape[1], 1))
+        zeros = torch.zeros((neg_samples.shape[1], 1))
+
+        train_edges = train_edges.transpose(1, 0)
+        neg_samples = neg_samples.transpose(1, 0)
+
+        train_edges = torch.cat((train_edges, neg_samples), dim=0)
+        labels = torch.cat((ones, zeros), dim=0)
+
+        idx_perm = np.random.permutation(len(train_edges))
+        train_edges = train_edges[idx_perm]
+        labels = labels[idx_perm]
+        labels = labels.to(device)
+
+        out = model(x, adj, train_edges[:, 0], train_edges[:, 1])
+        loss = criterion(out, labels)
+
+        loss.backward()
+        opt.step()
+
+        with torch.no_grad():
+            val_edges = torch.as_tensor(edges['val'])
+            neg_samples = torch.as_tensor(edges['neg_val'])
+            ones = torch.ones((val_edges.shape[1], 1))
+            zeros = torch.zeros((neg_samples.shape[1], 1))
+
+            val_edges = val_edges.transpose(1, 0)
+            neg_samples = neg_samples.transpose(1, 0)
+
+            val_edges = torch.cat((val_edges, neg_samples), dim=0)
+            labels = torch.cat((ones, zeros), dim=0)
+
+            idx_perm = np.random.permutation(len(val_edges))
+            val_edges = val_edges[idx_perm]
+            labels = labels[idx_perm]
+            labels = labels.to(device)
+
+            out = model(x, adj, val_edges[:, 0], val_edges[:, 1])
+            val_loss = criterion(out, labels)
+
+        if val_loss < best:
+            best = val_loss
+            counter = 0
+        else:
+            counter += 1
+
+        if counter == patience:
+            print('Early stopping!')
+            break
+
 def evaluate(model, dataloader, criterion, masks, device='cpu'):
 
     model.eval()
@@ -123,7 +195,7 @@ def evaluate(model, dataloader, criterion, masks, device='cpu'):
 
     x, adj, labels = dataloader[0]
 
-    x = [feat.to(device) for feat in x]
+    x = x.to(device)
     adj = adj.to(device)
     labels = labels.to(device)
     test_mask = masks[2]
@@ -137,10 +209,38 @@ def evaluate(model, dataloader, criterion, masks, device='cpu'):
     acc = torch.sum(preds == test_lbls).float() / test_lbls.shape[0]
 
     return loss, acc
-    # micro_f1 = f1_score(test_lbls.cpu(), preds.cpu(), average='micro')
-    # macro_f1 = f1_score(test_lbls.cpu(), preds.cpu(), average='macro')
 
-    # print(f'Iter: {i}\tF1: {micro_f1}')
-    # tot += acc*100
-    # accs.append(acc * 100)
-    # micro_f1s.append(micro_f1*100)
+def evaluate_link(model, dataloader, criterion, edges, device='cpu'):
+
+    model.eval()
+    model.to(device)
+
+    x, adj = dataloader
+
+    x = x.to(device)
+    adj = adj.to(device)
+    test_edges = torch.as_tensor(edges['test'])
+    neg_samples = torch.as_tensor(edges['neg_test'])
+
+    ones = torch.ones((test_edges.shape[1], 1))
+    zeros = torch.zeros((neg_samples.shape[1], 1))
+
+    test_edges = test_edges.transpose(1, 0)
+    neg_samples = neg_samples.transpose(1, 0)
+
+    test_edges = torch.cat((test_edges, neg_samples), dim=0)
+    labels = torch.cat((ones, zeros), dim=0)
+
+    idx_perm = np.random.permutation(len(test_edges))
+    test_edges = test_edges[idx_perm]
+    labels = labels[idx_perm]
+    labels = labels.to(device)
+
+    out = model(x, adj, test_edges[:, 0], test_edges[:, 1])
+    loss = criterion(out, labels)
+
+    pred = (out > 0.)
+
+    acc = torch.sum(pred == labels).float() / labels.shape[0]
+
+    return loss, acc

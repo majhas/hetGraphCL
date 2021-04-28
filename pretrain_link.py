@@ -11,7 +11,7 @@ import torch
 import torch.nn as nn
 from torch.utils.data import DataLoader
 
-from utils.data_utils import load_data, load_metapaths
+from utils.data_utils import load_data, load_IMDB_link, load_metapaths
 from utils.process import preprocess_adj
 
 from models.graph_cl import GraphCL, HetGraphCL
@@ -64,7 +64,7 @@ def main(args):
     if 'cuda' in args.device:
         device = torch.device(args.device)
 
-    node_features, adj, node_types, node_map, _, _ = load_data(args.filepath)
+    node_features, adj, node_types, node_map, test_edges = load_IMDB_link(args.filepath)
     n_fts = node_features.shape[-1]
     augs = [args.aug1, args.aug2]
 

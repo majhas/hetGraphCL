@@ -17,42 +17,24 @@ class ModelFinetune(nn.Module):
         x = self.out_layer(x)
         return x
 
-    def train_step(self, dataloader, criterion, opt, mask):
 
-        self.train()
-        for x, adj, labels in dataloader:
+class LinkFinetune(nn.Module):
 
-            x = x
-            adj = adj
-            # print(x.shape)
-            # print(adj.shape)
-            opt.zero_grad()
+    def __init__(self, gnn):
+        super(LinkFinetune, self).__init__()
 
-            out = self.forward(x, adj)
-            out = out[mask]
-            out = F.log_softmax(out, dim=1)
-            loss = criterion(out, labels[mask])
+        self.gnn = gnn
+        # self.out_layer = nn.Bilinear(self.gnn.out_dim, self.gnn.out_dim, 1)
+        self.out_layer = nn.CosineSimilarity(dim=1, eps=1e-6)
 
+    def forward(self, x, adj, node1, node2):
 
-            loss.backward()
-            opt.step()
+        x = self.gnn(x, adj)
 
-        return loss
+        x1 = x[node1]
+        x2 = x[node2]
 
-    def eval_step(self, dataloader, labels, criterion, mask):
-
-        self.eval()
-
-
-        for x, adj in dataloader:
-
-
-            out = self.forward(x, adj)
-            out = out[mask]
-            out = F.log_softmax(out, dim=1)
-            loss = criterion(out, labels[mask])
-
-        return loss, out
+        return self.out_layer(x1, x2).unsqueeze(1)
 
 class HetModelFinetune(nn.Module):
 

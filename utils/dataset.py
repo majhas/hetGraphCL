@@ -1,16 +1,20 @@
-import numpy as np
-
 import torch
 from torch.utils.data import Dataset
 
-class KGDataset(Dataset):
-    def __init__(self):
-        pass
+class GraphDataset(Dataset):
+    def __init__(
+        self,
+        node_features,
+        adj,
+        labels):
+
+        self.node_features = node_features
+        self.adj = adj
+        self.labels = labels
 
     def __len__(self):
-        return len()
+        return len(self.node_features)
 
     def __getitem__(self, idx):
-        pass
 
-    
+        return self.node_features, self.adj, self.labels
