@@ -29,11 +29,13 @@ def NTXent_loss(z1, z2, temp=0.1):
     return loss
 
 def sample(g, feat, att, num_neg=64):
+
     u, v, eid = g.edges(form='all', order='srcdst')
     att = att.mean(dim=1)[eid].squeeze()
     # print(feat.shape)
     pos_id = [0] * feat.shape[0]
-    _, counts = u.unique(return_counts=True)
+
+    _, counts = torch.unique(u, return_counts=True)
     neighbors = torch.split_with_sizes(v, tuple(counts))
     for i, item in enumerate(torch.split_with_sizes(att, tuple(counts))):
         one_hot = F.gumbel_softmax(item, tau=1, hard=True).type(torch.bool)
@@ -58,7 +60,9 @@ def contrastive_loss(gs, zs, atts, meta_paths, temp=0.5):
 
     loss1 = 0
     loss2 = 0
+    f = lambda x: torch.exp(x / temp)
     for i, meta_path in enumerate(meta_paths):
+
         g1 = gs[0][tuple(meta_path)]
         att1 = atts[0][i]
         z1 = zs[0][i]
@@ -67,32 +71,59 @@ def contrastive_loss(gs, zs, atts, meta_paths, temp=0.5):
         # print(att1.shape)
         pos1, neg1 = sample(g1, z1, att1)
 
-        g2 = gs[0][tuple(meta_path)]
+        g2 = gs[1][tuple(meta_path)]
         att2 = atts[0][i]
         z2 = zs[0][i]
 
         pos2, neg2 = sample(g2, z2, att2)
 
-        l_pos = F.cosine_similarity(z1, pos1, dim=2).flatten().unsqueeze(1) # NM * 1
-        l_neg1 = F.cosine_similarity(z1.expand(neg1.shape), neg1, dim=3).flatten(1, 2).transpose(0, 1) # NM * K sample
-        l_neg2 = F.cosine_similarity(z1.expand(neg2.shape), neg2, dim=3).flatten(1, 2).transpose(0, 1) # NM * K sample
+        z1 = z1.flatten(1) # N_nodes x (n_heads*out_dim)
+        z2 = z2.flatten(1) # N_nodes x (n_heads*out_dim)
+        pos1 = pos1.flatten(1)
+        pos2 = pos2.flatten(1)
+        neg1 = neg1.flatten(2, 3) # N_nodes x N_negs x (n_heads*out_dim)
+        neg2 = neg2.flatten(2, 3)
 
-        logits1 = torch.cat((l_pos, l_neg1, l_neg2), dim=1)
-        logits1 /= temp
-        loss1 += nn.CrossEntropyLoss()(logits1, torch.zeros(logits1.size(0), dtype=torch.long,
-                                                        device=z1.device))
-
-        l_pos = F.cosine_similarity(z2, pos2, dim=2).flatten().unsqueeze(1) # NM * 1
-        l_neg1 = F.cosine_similarity(z2.expand(neg1.shape), neg1, dim=3).flatten(1, 2).transpose(0, 1) # NM * K sample
-        l_neg2 = F.cosine_similarity(z2.expand(neg2.shape), neg2, dim=3).flatten(1, 2).transpose(0, 1) # NM * K sample
-
-        logits2 = torch.cat((l_pos, l_neg1, l_neg2), dim=1)
-        logits2 /= temp
-        loss2 += nn.CrossEntropyLoss()(logits2, torch.zeros(logits2.size(0), dtype=torch.long,
-                                                        device=z2.device))
+        # print(z1.shape)
+        # print(pos1.shape)
+        # print(neg1.shape)
+        l_pos1 = F.cosine_similarity(z1, pos1, dim=1).unsqueeze(1) # intra-positive pairs
+        l_pos2 = F.cosine_similarity(z1, z2, dim=1).unsqueeze(1) # inter-positive pairs
+        l_neg1 = F.cosine_similarity(z1.expand(neg1.shape), neg1, dim=2).transpose(1, 0) # NM * K sample
+        l_neg2 = F.cosine_similarity(z1.expand(neg2.shape), neg2, dim=2).transpose(1, 0) # NM * K sample
 
 
-    return (loss1 + loss2)/(2.*len(meta_paths))
+        l_pos1 = f(l_pos1)
+        l_pos2 = f(l_pos2)
+        l_neg1 = f(l_neg1).sum(1).unsqueeze(1)
+        l_neg2 = f(l_neg2).sum(1).unsqueeze(1)
+
+        # loss1 += -torch.log((l_pos1)/(l_pos1 + l_neg1))
+        loss1 += -torch.log((l_pos1+l_pos2)/(l_neg1))
+        # logits1 = torch.cat((l_pos1, l_pos2, l_neg1, l_neg2), dim=1)
+        # logits1 /= temp
+        # loss1 += nn.CrossEntropyLoss()(logits1, torch.zeros(logits1.size(0), dtype=torch.long,
+        #                                                 device=z1.device))
+
+        l_pos1 = F.cosine_similarity(z2, pos2, dim=1).unsqueeze(1)
+        l_pos2 = F.cosine_similarity(z2, z1, dim=1).unsqueeze(1)
+        l_neg1 = F.cosine_similarity(z2.expand(neg1.shape), neg1, dim=2).transpose(1, 0) # NM * K sample
+        l_neg2 = F.cosine_similarity(z2.expand(neg2.shape), neg2, dim=2).transpose(1, 0) # NM * K sample
+
+        l_pos1 = f(l_pos1)
+        l_pos2 = f(l_pos2)
+        l_neg1 = f(l_neg1).sum(1).unsqueeze(1)
+        l_neg2 = f(l_neg2).sum(1).unsqueeze(1)
+
+        loss2 += -torch.log((l_pos1+l_pos2)/(l_neg2))
+        # loss2 += -torch.log((l_pos1)/(l_pos1 + l_neg2))
+        # logits2 = torch.cat((l_pos1, l_pos2, l_neg1, l_neg2), dim=1)
+        # logits2 /= temp
+        # loss2 += nn.CrossEntropyLoss()(logits2, torch.zeros(logits2.size(0), dtype=torch.long,
+        #                                                 device=z2.device))
+
+    loss = (loss1 + loss2)/(2.*len(meta_paths))
+    return loss.mean()
 
 def to_dgl(x, adj, node_types):
 
@@ -156,25 +187,23 @@ def train_cl(model, dataloader, criterion, opt, epochs, augs, node_types=None,
             x1, g1 = x1.to(device), g2.to(device)
             x2, g2 = x1.to(device), g2.to(device)
 
-            _, out1 = model(g1, x1)
-            atts1 = model.layers[-1].atts
+            _, out1, atts1 = model(g1, x1)
             gs1 = model.layers[-1]._cached_coalesced_graph
 
-            _, out2 = model(g2, x2)
-            atts2 = model.layers[-1].atts
+            _, out2, atts2 = model(g2, x2)
             gs2 = model.layers[-1]._cached_coalesced_graph
 
-            loss = contrastive_loss([gs1, gs2], [out1, out2], [atts1, atts2], model.meta_paths)
-            # print(att_based_loss1)
-            # print(att_based_loss2)
+            # (N_metapaths x N_nodes x n_heads x out_dim)
+            # out1 = out1.flatten(2, 3)
+            # out2 = out2.flatten(2, 3)
+
+            # loss = 0
+            # for i in range(len(out1)):
+            #     loss += NTXent_loss(out1[i], out2[i])
             #
-            # loss1 = criterion(out1, out2)
-            # loss2 = criterion(out2, out1)
+            # loss /= len(out1)
 
-            # print(loss1)
-            # print(loss2)
-            # loss = (att_based_loss1 + att_based_loss2 + loss1 + loss2)/4.
-
+            loss = contrastive_loss([gs1, gs2], [out1, out2], [atts1, atts2], model.meta_paths)
             loss.backward()
             opt.step()
 
@@ -205,14 +234,16 @@ def train_finetune(model, dataloader, criterion, opt,
 
         opt.zero_grad()
 
-        x, adj, labels = dataloader[0]
+        x, adj, node_types, labels = dataloader
+        x, g = to_dgl(x, adj, node_types)
+
 
         x = x.to(device)
-        adj = adj.to(device)
+        g = g.to(device)
         labels = labels.to(device)
         train_mask = masks[0]
 
-        out = model(x, adj)[train_mask]
+        out = model(g, x)[train_mask]
         out = F.log_softmax(out, dim=1)
         loss = criterion(out, labels[train_mask])
 
@@ -221,7 +252,7 @@ def train_finetune(model, dataloader, criterion, opt,
 
         with torch.no_grad():
             val_mask = masks[1]
-            out = model(x, adj)[val_mask]
+            out = model(g, x)[val_mask]
             out = F.log_softmax(out, dim=1)
             val_loss = criterion(out, labels[val_mask])
         # loss = model.train_step(dataloader, criterion, opt)
@@ -313,13 +344,15 @@ def evaluate(model, dataloader, criterion, masks, device='cpu'):
     model.eval()
     model.to(device)
 
-    x, adj, labels = dataloader[0]
+    x, adj, node_types, labels = dataloader
+    x, g = to_dgl(x, adj, node_types)
+
 
     x = x.to(device)
-    adj = adj.to(device)
+    g = g.to(device)
     labels = labels.to(device)
     test_mask = masks[2]
-    out = model(x, adj)[test_mask]
+    out = model(g, x)[test_mask]
     out = F.log_softmax(out, dim=1)
     test_lbls = labels[test_mask]
 

@@ -128,10 +128,11 @@ class HANLayer(nn.Module):
             loss = 0
 
         projections = []
+        atts = []
         for i, meta_path in enumerate(self.meta_paths):
             new_g = self._cached_coalesced_graph[meta_path]
             feat, att = self.gat_layers[i](new_g, h, get_attention)
-            self.atts.append(att)
+            atts.append(att)
             # feat.retain_grad()
             # feat.requires_grad_(True)
             # if layer_number == 0:
@@ -155,7 +156,7 @@ class HANLayer(nn.Module):
         else:
             projections = None
 
-        return self.semantic_attention(semantic_embeddings), projections                    # (N, D * K)
+        return self.semantic_attention(semantic_embeddings), projections, atts                    # (N, D * K)
 
     def test_step(self, g, h):
         semantic_embeddings = []
@@ -198,14 +199,15 @@ class HAN(nn.Module):
             self.layers.append(HANLayer(meta_paths, hidden_size * num_heads[l-1],
                                         hidden_size, num_heads[l], dropout, l, project))
         # self.predict = nn.Linear(hidden_size * num_heads[-1], out_size)
+        # print([self.layers[i].projection_heads for i in range(len(num_heads))])
 
     def forward(self, g, h):
 
         loss = 0
         for i, gnn in enumerate(self.layers):
-            h, z = gnn(g, h, i)
+            h, z, atts = gnn(g, h, i)
 
-        return h, z
+        return h, z, atts
 
     def test_step(self, g, h):
         for i, gnn in enumerate(self.layers):

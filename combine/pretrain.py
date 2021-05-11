@@ -22,16 +22,19 @@ from training.train import train_cl, NTXent_loss
 
 
 aug_choices = ['dropN', 'dropE', 'maskN',
-                'dropN_metapath', 'dropE_metapath', 'subgraph_metapath', 'subgraph_metapath_list'
-                ,'dropN_not_on_metapath', 'dropE_not_on_metapath']# 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
+                'dropN_metapath', 'dropE_metapath', 'maskN_metapath', 'subgraph_metapath', 'subgraph_metapath_list',
+                'dropN_not_on_metapath', 'dropE_not_on_metapath', 'maskN_not_on_metapath']# 'subgraph_not_on_metapath', 'subgraph_not_on_metapath_list']
 
 def parse_args():
 
     parser = argparse.ArgumentParser()
 
     parser.add_argument('--filepath', default='data/DBLP/DBLP_processed', help='path to dataset')
-    parser.add_argument('--aug', default=None, choices=aug_choices,
+    parser.add_argument('--aug1', default=None, choices=aug_choices,
                             help='type of first augmentation to apply')
+
+    parser.add_argument('--aug2', default=None, choices=aug_choices,
+                        help='type of first augmentation to apply')
     parser.add_argument('--aug_ratio', default=0.4, type=float, help='augmentation strength')
     parser.add_argument('--metapath', default=None, help='file to a list of metapaths')
     parser.add_argument('--metapath_list', default=None, help='file to a list of metapaths')
@@ -46,6 +49,7 @@ def parse_args():
     parser.add_argument('--epochs', default=100, type=int, help='number of iterations to train')
     parser.add_argument('--lr', default=0.005, type=float, help='learning rate')
     parser.add_argument('--dropout', default=0.5, type=float, help='dropout')
+    parser.add_argument('--patience', default=10, type=int, help='patience before stopping training')
 
     parser.add_argument('--device', default='cuda:0', help='specify device to use')
     parser.add_argument('--seed', type=int, default=123, help='seed')
@@ -86,12 +90,17 @@ def main(args):
 
     for aug1 in aug_choices:
 
-        if args.aug is not None:
-            if aug1 != args.aug:
+        if args.aug1 is not None:
+            if aug1 != args.aug1:
                 continue
 
 
         for aug2 in aug_choices:
+
+            if args.aug2 is not None:
+                if aug2 != args.aug2:
+                    continue
+
             print('--- Initialize Model ---')
 
             augs = [aug1, aug2]
@@ -99,7 +108,7 @@ def main(args):
             model = HAN(meta_paths=[['md', 'dm'], ['ma', 'am']],
                         in_size=node_features.shape[1],
                         hidden_size=args.hid_dim,
-                        num_heads=[args.num_heads],
+                        num_heads=[args.num_heads]*args.n_layers,
                         dropout=args.dropout)
 
 
@@ -113,7 +122,7 @@ def main(args):
             print('*'*100)
 
             train_cl(model, dataloader, criterion, opt, args.epochs, augs=augs, node_types=node_types, \
-                    metapath=metapath, metapath_list=metapath_list, aug_ratio=args.aug_ratio, device=device)
+                    metapath=metapath, metapath_list=metapath_list, aug_ratio=args.aug_ratio, patience=args.patience, device=device)
 
             if args.save:
                 save_dict = {}
