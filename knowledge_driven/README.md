@@ -25,7 +25,7 @@ Pre-Train on all transformation pairs
 python pretrain_all.py --filepath ../data/IMDB/IMDB_processed/ --save checkpoints/IMDB/gcn.pkl --metapath 'movie,director,movie'
 ```
 
-**Note**: The files will be saved as "checkpoints/IMDB/gcn_a1_{aug1}_a2_{aug2}.pkl" for the above examples
+**Note**: The files will be saved as "checkpoints/IMDB/gcn_a1_{aug1}\_a2_{aug2}.pkl" for the above examples
 
 ## Finetuning
 
