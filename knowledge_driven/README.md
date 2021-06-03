@@ -3,14 +3,6 @@
 Knowledge-Driven **H**eterogeneous **G**raph **C**ontrastive **L**earning  
 This framework applies contrastive learning between two views of the input graph. To generate the two views, the framework leverages knowledge priors in the form of meta-paths to guide the transformations to focus on specific substructures within the graph.
 
-## Environment Setup
-
-Create a conda environment from the requirements.yml file
-
-```
-conda create -n <name_of_env> -f requirements.yml
-```
-
 ## Pre-Training
 
 Pre-train a Graph Convolutional Network (GCN) with specific transformation pairs
