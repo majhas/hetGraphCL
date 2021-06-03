@@ -40,6 +40,7 @@ dependencies:
   - idna=2.10=pyhd3eb1b0_0
   - importlib-metadata=3.10.0=py37h06a4308_0
   - intel-openmp=2021.2.0=h06a4308_610
+  - joblib=1.0.1=pyhd3eb1b0_0
   - jpeg=9b=h024ee3a_2
   - keras-preprocessing=1.1.2=pyhd3eb1b0_0
   - lame=3.100=h7b6447c_0
@@ -104,6 +105,7 @@ dependencies:
   - tensorflow-base=2.4.1=mkl_py37h43e0292_0
   - tensorflow-estimator=2.4.1=pyheb71bc4_0
   - termcolor=1.1.0=py37h06a4308_1
+  - threadpoolctl=2.1.0=pyh5ca1d4c_0
   - tk=8.6.10=hbc83047_0
   - torchaudio=0.8.0=py37
   - torchvision=0.9.0=py37_cu111
@@ -127,7 +129,6 @@ dependencies:
     - h5py==3.1.0
     - isodate==0.6.0
     - jinja2==2.11.3
-    - joblib==1.0.1
     - kiwisolver==1.3.1
     - littleutils==0.2.2
     - llvmlite==0.35.0
@@ -151,7 +152,6 @@ dependencies:
     - seaborn==0.11.1
     - sklearn==0.0
     - texttable==1.6.3
-    - threadpoolctl==2.1.0
     - torch-cluster==1.5.9
     - torch-geometric==1.6.3
     - torch-scatter==2.0.6
@@ -159,5 +159,5 @@ dependencies:
     - torch-spline-conv==1.2.1
     - tqdm==4.56.2
     - urllib3==1.26.3
-prefix: /home/majdih/miniconda3/envs/torch
+prefix: 
 
