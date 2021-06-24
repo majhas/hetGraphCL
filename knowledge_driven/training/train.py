@@ -1,4 +1,6 @@
 import numpy as np
+import random
+
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
@@ -46,8 +48,12 @@ def train_cl(model, dataloader, criterion, opt, epochs, augs, node_types=None,
             node_features, node_idx, edge_index, edge_weight = data.x, data.node_idx, data.edge_index, data.edge_attr
             adj = torch.sparse_coo_tensor(edge_index, values=edge_weight, dtype=torch.float32).to_dense()
 
-            aug_x1, aug_adj1 = augmentor.apply_aug(node_features, adj, augs[0])
-            aug_x2, aug_adj2 = augmentor.apply_aug(node_features, adj, augs[1])
+            if metapath_list is not None:
+                metapath = random.sample(metapath_list, 1)[0] # randomly sample metapath from list
+
+            print(metapath)
+            aug_x1, aug_adj1 = augmentor.apply_aug(node_features, adj, augs[0], metapath)
+            aug_x2, aug_adj2 = augmentor.apply_aug(node_features, adj, augs[1], metapath)
 
             aug_x1 = aug_x1.to(device)
             aug_adj1 = aug_adj1.to(device)

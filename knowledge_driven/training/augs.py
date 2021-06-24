@@ -12,7 +12,10 @@ class Augmentor():
         self.metapath = metapath
         self.metapath_list = metapath_list
 
-    def apply_aug(self, x, adj, aug_type):
+    def apply_aug(self, x, adj, aug_type, metapath=None):
+
+        if metapath is not None:
+            self.metapath = metapath
 
         if aug_type == None:
             aug_x, aug_adj = x, adj

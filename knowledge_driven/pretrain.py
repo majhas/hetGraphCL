@@ -33,7 +33,7 @@ def parse_args():
     parser.add_argument('--aug2', default=None, choices=aug_choices,
                         help='type of second augmentation to apply')
 
-    parser.add_argument('--aug_ratio', default=0.1, type=float, help='augmentation strength')
+    parser.add_argument('--aug_ratio', default=0.2, type=float, help='augmentation strength')
     parser.add_argument('--metapath', default=None, help='file to a list of metapaths')
     parser.add_argument('--metapath_list', default=None, help='file to a list of metapaths')
 
@@ -61,7 +61,9 @@ def main(args):
 
     if 'cuda' in args.device:
         device = torch.device(args.device)
-
+    else:
+        device = 'cpu'
+        
     node_features, adj, node_types, node_map, _, _ = load_data(args.filepath)
     n_fts = node_features.shape[-1]
     augs = [args.aug1, args.aug2]

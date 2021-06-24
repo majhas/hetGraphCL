@@ -1,6 +1,2 @@
 movie,director,movie
 movie,actor,movie
-director,movie,director
-director,movie,actor,movie,director
-actor,movie,actor
-actor,movie,director,movie,actor
